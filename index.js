@@ -1,7 +1,6 @@
 import { END,START, MessagesAnnotation, StateGraph } from '@langchain/langgraph';
 import readline from 'node:readline/promises';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { MemorySaver } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
 import { ChatGroq } from '@langchain/groq';
 import { TavilySearch } from '@langchain/tavily';
@@ -37,19 +36,21 @@ async function callModel(state) {
     return {messages:[response]}
 }
 
-// Conditional Node function example
 function shouldContinue(state) {
-    console.log("the State", state)
+    const lastMessage = state.messages[state.messages.length - 1];
+    if (lastMessage?.tool_calls?.length > 0) {
+        return "tools";
+    }
     return END;
 }
 
 // BUILD THE GRAPH
 const workflow = new StateGraph(MessagesAnnotation)
     .addNode("agent", callModel) 
-    .addNode('tools',toolNode)
+    .addNode('tools', toolNode)
     .addEdge(START, 'agent')
-    .addEdge('agent', END)
-    .addEdge("tools","agent")
+    .addConditionalEdges('agent', shouldContinue)
+    .addEdge('tools', 'agent')
 
 // COMPILE THE GRAPH
 
@@ -63,7 +64,6 @@ async function main() {
     while (true) {
 
         const userInput = await rl.question('You: ');
-        console.log("You Said: ", userInput);
         if (userInput.toLowerCase() === 'exit') {
             console.log("Exiting...");
             break;
@@ -72,9 +72,10 @@ async function main() {
         const finalState = await app.invoke({
             messages: [new HumanMessage(userInput)]
         });
+        console.log("Final State: ", finalState);
 
-        const lastMessage = finalState.messages[finalState.messages.length - 1]
-        console.log("Final State: ", lastMessage.text);
+        // const lastMessage = finalState.messages[finalState.messages.length - 1]
+        // console.log("Final State: ", lastMessage.text);
     }
     rl.close();
 
