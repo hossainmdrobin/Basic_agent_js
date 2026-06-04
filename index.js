@@ -1,4 +1,4 @@
-import { END,START, MessagesAnnotation, StateGraph } from '@langchain/langgraph';
+import { END,START, MessagesAnnotation, StateGraph, MemorySaver } from '@langchain/langgraph';
 import readline from 'node:readline/promises';
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { HumanMessage } from '@langchain/core/messages';
@@ -7,7 +7,7 @@ import { TavilySearch } from '@langchain/tavily';
 import dotenv from 'dotenv';
 dotenv.config();
 
-
+const checkpointer = new MemorySaver()
 const tool = new TavilySearch({
     maxResults: 3,
     apiKey: process.env.TAVILY_API_KEY,
@@ -54,7 +54,7 @@ const workflow = new StateGraph(MessagesAnnotation)
 
 // COMPILE THE GRAPH
 
-const app = workflow.compile()
+const app = workflow.compile({checkpointer})
 
 async function main() {
     const rl = readline.createInterface({
@@ -71,7 +71,7 @@ async function main() {
 
         const finalState = await app.invoke({
             messages: [new HumanMessage(userInput)]
-        });
+        },{configurable:{thread_id: 'main-thread'}});
         console.log("Final State: ", finalState);
 
         // const lastMessage = finalState.messages[finalState.messages.length - 1]
